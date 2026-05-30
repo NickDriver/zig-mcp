@@ -147,6 +147,35 @@ src/
   client.zig       handshake + typed request helpers
 ```
 
+## Testing
+
+What `zig build test` covers (in-process, leak-checked via `std.testing.allocator`):
+
+- **Unit tests** for the JSON-RPC envelope (exact-string round-trips), the
+  protocol payload types' serialization shape, and version negotiation.
+- **The `memory` transport**, including a cross-thread test where one thread
+  blocks on `readMessage` and another wakes it — exercising the real blocking
+  path.
+- **The server over a transport** (run on a background thread): `initialize`,
+  `tools/list`, `tools/call`, unknown-method errors, and handler-error →
+  `isError` results.
+- **A full client↔server loopback** — a real `Server` and `Client` on separate
+  threads talking over the `memory` pipe — covering the handshake, tools,
+  resources, and prompts end-to-end.
+
+Verified **manually** (not in the automated suite):
+
+- **stdio**, by piping JSON-RPC lines into `server_stdio`, and cross-process via
+  `client_stdio` (which spawns the server as a child).
+- **HTTP**, by running `server_http` and hitting it with both `curl` and
+  `client_http`.
+
+> Caveat: the **HTTP transport's wire framing is only verified manually** — it
+> has no automated test yet (cleanly shutting down a blocking accept loop from a
+> test thread is fiddly, and the protocol logic it runs is already covered by
+> the stdio/memory tests). Everything has been exercised only on **macOS arm64,
+> Zig 0.16.0, Debug** builds.
+
 ## Limitations
 
 v1 implements the request/response core. Not yet supported:
